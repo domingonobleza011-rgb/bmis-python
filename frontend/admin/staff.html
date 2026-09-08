@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staff - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="residents.html">Residents</a>
+      <a href="certificates.html">Certificates</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="announcements.html">Announcements</a>
+      <a href="staff.html" class="active">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Add Staff Account</h2>
+      <p style="color:var(--ink-soft); font-size:13px;">Set Position to "SK Chairperson" or similar starting with "SK" to grant Sangguniang Kabataan module access.</p>
+      <form id="staffForm">
+        <label>Email or Phone (login)</label>
+        <input name="login_identity" required>
+        <label>Temporary Password</label>
+        <input name="password" type="password" required minlength="6">
+        <div class="grid cols-2">
+          <div><label>Last Name</label><input name="lname" required></div>
+          <div><label>First Name</label><input name="fname" required></div>
+        </div>
+        <label>Position</label>
+        <input name="position" placeholder="e.g. Barangay Secretary, SK Chairperson">
+        <button class="btn" type="submit" style="margin-top:14px;">Create Account</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Staff Accounts</h3>
+      <div id="staffBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+
+  document.getElementById("staffForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    try {
+      await api("/api/staff", { method: "POST", body: payload });
+      toast("Staff account created.");
+      e.target.reset();
+      loadStaff();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadStaff() {
+    try {
+      const rows = await api("/api/staff");
+      const box = document.getElementById("staffBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No staff accounts yet.</p>`; return; }
+      box.innerHTML = `<table><thead><tr><th>Name</th><th>Login</th><th>Position</th><th></th></tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.fname} ${r.lname}</td>
+          <td>${r.email || r.phone_number || r.login_identity}</td>
+          <td>${r.position || "—"}</td>
+          <td><button class="btn danger small" onclick="removeStaff(${r.id_user})">Remove</button></td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function removeStaff(id) {
+    try { await api(`/api/staff/${id}`, { method: "DELETE" }); toast("Removed."); loadStaff(); }
+    catch (err) { toast(err.message, "error"); }
+  }
+
+  loadStaff();
+</script>
+</body>
+</html>

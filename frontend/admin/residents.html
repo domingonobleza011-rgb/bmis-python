@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Residents - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="residents.html" class="active">Residents</a>
+      <a href="certificates.html">Certificates</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="announcements.html">Announcements</a>
+      <a href="staff.html" id="staffLink">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Residents</h2>
+      <div class="search-row">
+        <input id="search" placeholder="Search by name…">
+        <select id="sexFilter"><option value="">All Sexes</option><option>Male</option><option>Female</option></select>
+        <select id="voterFilter"><option value="">All Voters</option><option value="Yes">Voters Only</option><option value="No">Non-voters</option></select>
+        <select id="pwdFilter"><option value="">All</option><option value="Yes">PWD Only</option></select>
+        <select id="householdFilter"><option value="">All</option><option value="Yes">Household Heads</option></select>
+        <button class="btn secondary" onclick="loadResidents()">Filter</button>
+      </div>
+      <div id="residentsBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator", "staff"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+  if (session.role !== "administrator") document.getElementById("staffLink").remove();
+
+  async function loadResidents() {
+    const params = new URLSearchParams();
+    const search = document.getElementById("search").value.trim();
+    const sex = document.getElementById("sexFilter").value;
+    const voter = document.getElementById("voterFilter").value;
+    const pwd = document.getElementById("pwdFilter").value;
+    const family_role = document.getElementById("householdFilter").value;
+    if (search) params.set("search", search);
+    if (sex) params.set("sex", sex);
+    if (voter) params.set("voter", voter);
+    if (pwd) params.set("pwd", pwd);
+    if (family_role) params.set("family_role", family_role);
+
+    try {
+      const rows = await api(`/api/residents?${params.toString()}`);
+      const box = document.getElementById("residentsBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No residents match this filter.</p>`; return; }
+      box.innerHTML = `<table><thead><tr>
+          <th>Name</th><th>Sex</th><th>Address</th><th>Voter</th><th>PWD</th><th>Household Head</th>
+        </tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.fname} ${r.mi || ""} ${r.lname}</td>
+          <td>${r.sex || "—"}</td>
+          <td>${[r.houseno, r.street, r.brgy].filter(Boolean).join(", ") || "—"}</td>
+          <td>${r.voter || "No"}</td><td>${r.pwd || "No"}</td><td>${r.family_role || "No"}</td>
+        </tr>`).join("")}
+      </tbody></table>
+      <p style="color:var(--ink-soft); font-size:12px; margin-top:8px;">${rows.length} result(s)</p>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  loadResidents();
+</script>
+</body>
+</html>

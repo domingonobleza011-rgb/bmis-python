@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Complaints - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="residents.html">Residents</a>
+      <a href="certificates.html">Certificates</a>
+      <a href="complaints.html" class="active">Complaints</a>
+      <a href="announcements.html">Announcements</a>
+      <a href="staff.html" id="staffLink">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <div class="flex-between">
+        <h2>Complaints</h2>
+        <select id="statusFilter" onchange="loadComplaints()">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="investigating">Investigating</option>
+          <option value="resolved">Resolved</option>
+        </select>
+      </div>
+      <div id="complaintsBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator", "staff"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+  if (session.role !== "administrator") document.getElementById("staffLink").remove();
+
+  async function loadComplaints() {
+    const status = document.getElementById("statusFilter").value;
+    const params = status ? `?status=${status}` : "";
+    try {
+      const rows = await api(`/api/complaints${params}`);
+      const box = document.getElementById("complaintsBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No complaints found.</p>`; return; }
+      box.innerHTML = `<table><thead><tr>
+          <th>Complainant</th><th>Category</th><th>Description</th><th>Location</th><th>Status</th><th></th>
+        </tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.full_name}<br><span style="color:var(--ink-soft); font-size:12px;">${r.contact_number || ""}</span></td>
+          <td>${r.category}</td>
+          <td>${r.description}</td>
+          <td>${r.location || "—"}</td>
+          <td>${badge(r.status)}</td>
+          <td>
+            <select onchange="setStatus(${r.id_complaint}, this.value)">
+              <option value="">Update…</option>
+              <option value="pending">Pending</option>
+              <option value="investigating">Investigating</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function setStatus(id, status) {
+    if (!status) return;
+    try {
+      await api(`/api/complaints/${id}/status`, { method: "PATCH", body: { status } });
+      toast("Status updated.");
+      loadComplaints();
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  loadComplaints();
+</script>
+</body>
+</html>

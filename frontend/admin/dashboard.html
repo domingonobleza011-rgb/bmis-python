@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Dashboard - Barangay San Pedro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html" class="active">Dashboard</a>
+      <a href="residents.html">Residents</a>
+      <a href="certificates.html">Certificates</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="announcements.html">Announcements</a>
+      <a href="staff.html" id="staffLink">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <h2 id="welcome">Dashboard</h2>
+    <div class="grid cols-4" id="statsBox">
+      <div class="stat"><div class="num">…</div><div class="label">Loading</div></div>
+    </div>
+
+    <div class="card">
+      <div class="flex-between">
+        <h3>Pending Resident Registrations</h3>
+        <button class="btn secondary small" onclick="loadPending()">Refresh</button>
+      </div>
+      <div id="pendingBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator", "staff"]);
+  document.getElementById("welcome").textContent = `Welcome, ${session.name}`;
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+  if (session.role !== "administrator") document.getElementById("staffLink").remove();
+
+  async function loadStats() {
+    try {
+      const s = await api("/api/dashboard/summary");
+      const items = [
+        ["Total Residents", s.total_residents], ["Male", s.male], ["Female", s.female],
+        ["Registered Voters", s.voters], ["PWD", s.pwd], ["Households", s.households],
+        ["Pending Certificates", s.pending_certificates], ["Pending Complaints", s.pending_complaints],
+        ["Pending Registrations", s.pending_registrations],
+      ];
+      document.getElementById("statsBox").innerHTML = items.map(([label, num]) => `
+        <div class="stat"><div class="num">${num}</div><div class="label">${label}</div></div>
+      `).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function loadPending() {
+    try {
+      const rows = await api("/api/residents/pending");
+      const box = document.getElementById("pendingBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No pending applications.</p>`; return; }
+      box.innerHTML = `<table><thead><tr><th>Name</th><th>Contact</th><th>Submitted</th><th></th></tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.fname} ${r.lname}</td>
+          <td>${r.email || r.phone_number || "—"}</td>
+          <td>${fmtDate(r.date_submitted)}</td>
+          <td>
+            <button class="btn success small" onclick="approve(${r.id_resident_pending})">Approve</button>
+            <button class="btn danger small" onclick="reject(${r.id_resident_pending})">Reject</button>
+          </td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function approve(id) {
+    try { await api(`/api/residents/pending/${id}/approve`, { method: "POST" }); toast("Resident approved."); loadPending(); loadStats(); }
+    catch (err) { toast(err.message, "error"); }
+  }
+  async function reject(id) {
+    try { await api(`/api/residents/pending/${id}/reject`, { method: "POST" }); toast("Application rejected."); loadPending(); }
+    catch (err) { toast(err.message, "error"); }
+  }
+
+  loadStats(); loadPending();
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificates - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="residents.html">Residents</a>
+      <a href="certificates.html" class="active">Certificates</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="announcements.html">Announcements</a>
+      <a href="staff.html" id="staffLink">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Certificate & Service Requests</h2>
+      <div class="tabs" id="tabs"></div>
+      <div class="search-row">
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="released">Released</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <input id="search" placeholder="Search by name…">
+        <button class="btn secondary" onclick="loadRequests()">Filter</button>
+      </div>
+      <div id="requestsBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator", "staff"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+  if (session.role !== "administrator") document.getElementById("staffLink").remove();
+
+  const CERT_TYPES = {
+    "residency": "Residency", "clearance": "Clearance", "indigency": "Indigency",
+    "good-moral": "Good Moral", "solo-parent": "Solo Parent", "guardianship": "Guardianship",
+    "livestock": "Livestock", "business-permit": "Business Permit", "barangay-id": "Barangay ID",
+  };
+  let activeType = "residency";
+
+  const tabs = document.getElementById("tabs");
+  Object.entries(CERT_TYPES).forEach(([key, label]) => {
+    const btn = document.createElement("button");
+    btn.textContent = label;
+    btn.className = key === activeType ? "active" : "";
+    btn.onclick = () => {
+      activeType = key;
+      [...tabs.children].forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      loadRequests();
+    };
+    tabs.appendChild(btn);
+  });
+
+  async function loadRequests() {
+    const params = new URLSearchParams();
+    const status = document.getElementById("statusFilter").value;
+    const search = document.getElementById("search").value.trim();
+    if (status) params.set("status", status);
+    if (search) params.set("search", search);
+
+    try {
+      const rows = await api(`/api/certificates/${activeType}?${params.toString()}`);
+      const box = document.getElementById("requestsBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No requests found.</p>`; return; }
+      const idKey = Object.keys(rows[0]).find(k => k.startsWith("id_") && k !== "id_resident");
+      box.innerHTML = `<table><thead><tr>
+          <th>Name</th><th>Purpose</th><th>Status</th><th>Submitted</th><th></th>
+        </tr></thead><tbody>
+        ${rows.map(r => `<tr>
+          <td>${r.fname || ""} ${r.lname || ""}</td>
+          <td>${r.purpose || r.bsname || "—"}</td>
+          <td>${badge(r.status)}</td>
+          <td>${fmtDate(r.date_submitted)}</td>
+          <td>
+            ${r.status !== "approved" ? `<button class="btn success small" onclick="setStatus(${r[idKey]},'approved')">Approve</button>` : ""}
+            ${r.status !== "released" ? `<button class="btn secondary small" onclick="setStatus(${r[idKey]},'released')">Release</button>` : ""}
+            ${r.status !== "rejected" ? `<button class="btn danger small" onclick="setStatus(${r[idKey]},'rejected')">Reject</button>` : ""}
+          </td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function setStatus(id, status) {
+    try {
+      await api(`/api/certificates/${activeType}/${id}/status`, { method: "PATCH", body: { status } });
+      toast(`Marked ${status}.`);
+      loadRequests();
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  loadRequests();
+</script>
+</body>
+</html>

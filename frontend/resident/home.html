@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Barangay - Home</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Barangay San Pedro</div>
+    <nav>
+      <a href="home.html" class="active">Home</a>
+      <a href="services.html">Services</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="messages.html">Messages</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2 id="welcome">Welcome!</h2>
+      <p style="color:var(--ink-soft);">Here's a quick look at your barangay profile and recent activity.</p>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>My Profile</h3>
+        <div id="profileBox">Loading…</div>
+      </div>
+      <div class="card">
+        <h3>Household Members</h3>
+        <div id="familyBox">Loading…</div>
+        <form id="addFamilyForm" style="margin-top:14px; display:none;">
+          <div class="grid cols-2">
+            <div><label>Last Name</label><input name="lname" required></div>
+            <div><label>First Name</label><input name="fname" required></div>
+          </div>
+          <div class="grid cols-2">
+            <div><label>Relationship</label><input name="relationship" required placeholder="e.g. Son, Spouse"></div>
+            <div><label>Age</label><input name="age" type="number"></div>
+          </div>
+          <button class="btn small" type="submit" style="margin-top:10px;">Add Member</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Announcements</h3>
+      <div id="announceBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["resident"]);
+  document.getElementById("welcome").textContent = `Welcome, ${session.name}!`;
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+
+  async function loadProfile() {
+    try {
+      const r = await api(`/api/residents/${session.user_id}`);
+      document.getElementById("profileBox").innerHTML = `
+        <p><strong>${r.fname} ${r.mi || ""} ${r.lname}</strong></p>
+        <p style="color:var(--ink-soft); font-size:13px;">
+          ${r.houseno || ""} ${r.street || ""}, ${r.brgy || ""}, ${r.municipal || ""}<br>
+          Sex: ${r.sex || "—"} · Voter: ${r.voter || "No"} · PWD: ${r.pwd || "No"}
+        </p>`;
+      if (r.family_role === "Yes") document.getElementById("addFamilyForm").style.display = "block";
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function loadFamily() {
+    try {
+      const members = await api(`/api/residents/${session.user_id}/family`);
+      const box = document.getElementById("familyBox");
+      if (!members.length) { box.innerHTML = `<p class="empty">No household members added yet.</p>`; return; }
+      box.innerHTML = `<table><thead><tr><th>Name</th><th>Relationship</th><th>Age</th><th></th></tr></thead><tbody>
+        ${members.map(m => `<tr>
+          <td>${m.fname} ${m.lname}</td><td>${m.relationship}</td><td>${m.age ?? "—"}</td>
+          <td><button class="btn danger small" onclick="removeMember(${m.id_family_member})">Remove</button></td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function removeMember(id) {
+    try { await api(`/api/residents/family/${id}`, { method: "DELETE" }); toast("Removed."); loadFamily(); }
+    catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("addFamilyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const payload = Object.fromEntries(form.entries());
+    if (payload.age) payload.age = parseInt(payload.age);
+    try {
+      await api(`/api/residents/${session.user_id}/family`, { method: "POST", body: payload });
+      toast("Member added.");
+      e.target.reset();
+      loadFamily();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadAnnouncements() {
+    try {
+      const items = await api("/api/announcements", { auth: false });
+      const box = document.getElementById("announceBox");
+      if (!items.length) { box.innerHTML = `<p class="empty">No announcements right now.</p>`; return; }
+      box.innerHTML = items.slice(0, 5).map(a => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--line);">
+          <strong>${a.event}</strong>
+          <div style="font-size:12px; color:var(--ink-soft);">${fmtDate(a.start_date)} · posted by ${a.addedby || "Barangay Office"}</div>
+        </div>`).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  loadProfile(); loadFamily(); loadAnnouncements();
+</script>
+</body>
+</html>

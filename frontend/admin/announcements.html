@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Announcements - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Admin — Barangay San Pedro</div>
+    <nav>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="residents.html">Residents</a>
+      <a href="certificates.html">Certificates</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="announcements.html" class="active">Announcements</a>
+      <a href="staff.html" id="staffLink">Staff</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Post an Announcement</h2>
+      <form id="announceForm">
+        <label>Event / Title</label>
+        <input name="event" required>
+        <label>Date</label>
+        <input name="start_date" type="date">
+        <button class="btn" type="submit" style="margin-top:14px;">Post</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Current Announcements</h3>
+      <div id="announceBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["administrator", "staff"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+  if (session.role !== "administrator") document.getElementById("staffLink").remove();
+
+  document.getElementById("announceForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    if (!payload.start_date) delete payload.start_date;
+    try {
+      await api("/api/announcements", { method: "POST", body: payload });
+      toast("Announcement posted.");
+      e.target.reset();
+      loadAnnouncements();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadAnnouncements() {
+    try {
+      const rows = await api("/api/announcements");
+      const box = document.getElementById("announceBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No announcements posted.</p>`; return; }
+      box.innerHTML = rows.map(a => `
+        <div class="flex-between" style="padding:12px 0; border-bottom:1px solid var(--line);">
+          <div>
+            <strong>${a.event}</strong>
+            <div style="font-size:12px; color:var(--ink-soft);">${fmtDate(a.start_date)} · ${a.addedby || "—"}</div>
+          </div>
+          <button class="btn danger small" onclick="removeAnnouncement(${a.id_announcement})">Archive</button>
+        </div>`).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function removeAnnouncement(id) {
+    try { await api(`/api/announcements/${id}`, { method: "DELETE" }); toast("Archived."); loadAnnouncements(); }
+    catch (err) { toast(err.message, "error"); }
+  }
+
+  loadAnnouncements();
+</script>
+</body>
+</html>

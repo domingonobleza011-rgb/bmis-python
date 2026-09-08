@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messages - Barangay San Pedro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+<style>
+  #thread { max-height: 420px; overflow-y: auto; display:flex; flex-direction:column; gap:8px; padding:6px; }
+  .bubble { max-width: 70%; padding: 10px 14px; border-radius: 14px; font-size: 14px; }
+  .bubble.resident { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+  .bubble.admin { align-self: flex-start; background: #f1f2f5; border-bottom-left-radius: 4px; }
+  .bubble .time { display:block; font-size:11px; opacity:.7; margin-top:4px; }
+</style>
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Barangay San Pedro</div>
+    <nav>
+      <a href="home.html">Home</a>
+      <a href="services.html">Services</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="messages.html" class="active">Messages</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container narrow">
+    <div class="card">
+      <h2>Message the Barangay Office</h2>
+      <div id="thread">Loading…</div>
+      <form id="msgForm" style="margin-top:14px; display:flex; gap:8px;">
+        <input name="message_text" placeholder="Type a message…" required style="flex:1;">
+        <button class="btn" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["resident"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+
+  async function loadThread() {
+    try {
+      const msgs = await api(`/api/messages/thread/${session.user_id}`);
+      const box = document.getElementById("thread");
+      if (!msgs.length) { box.innerHTML = `<p class="empty">No messages yet — say hello!</p>`; return; }
+      box.innerHTML = msgs.map(m => `
+        <div class="bubble ${m.from}">${m.text}<span class="time">${new Date(m.at).toLocaleString()}</span></div>
+      `).join("");
+      box.scrollTop = box.scrollHeight;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  document.getElementById("msgForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    try {
+      await api("/api/messages/resident", { method: "POST", body: payload });
+      e.target.reset();
+      loadThread();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  loadThread();
+  setInterval(loadThread, 8000);
+</script>
+</body>
+</html>

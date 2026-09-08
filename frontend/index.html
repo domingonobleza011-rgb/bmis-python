@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Barangay San Pedro - Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(160deg,#fff,var(--pink-bg)); }
+  .login-card { width:100%; max-width:400px; }
+  .brand-header { text-align:center; margin-bottom:20px; }
+  .brand-header h1 { font-size:20px; color:var(--blue-deep); }
+  .switch-link { text-align:center; margin-top:14px; font-size:13px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="card login-card">
+    <div class="brand-header">
+      <h1>🏛️ Barangay San Pedro</h1>
+      <p style="color:var(--ink-soft); font-size:13px;">Barangay Management Information System</p>
+    </div>
+    <form id="loginForm">
+      <label>Email or Phone Number</label>
+      <input type="text" id="identity" required placeholder="you@example.com">
+      <label>Password</label>
+      <input type="password" id="password" required placeholder="••••••••">
+      <button class="btn" type="submit" style="width:100%; margin-top:20px;">Log In</button>
+    </form>
+    <p class="switch-link">New resident? <a href="register.html" style="color:var(--blue); font-weight:700;">Register here</a></p>
+  </div>
+
+<script src="js/api.js"></script>
+<script>
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const identity = document.getElementById("identity").value.trim();
+    const password = document.getElementById("password").value;
+    try {
+      const data = await api("/api/auth/login", { method: "POST", body: { identity, password }, auth: false });
+      setSession(data);
+      if (data.role === "administrator" || data.role === "staff") window.location.href = "admin/dashboard.html";
+      else if (data.role === "sk") window.location.href = "sk/dashboard.html";
+      else window.location.href = "resident/home.html";
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+</script>
+</body>
+</html>

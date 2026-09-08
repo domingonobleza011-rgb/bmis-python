@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Services - Barangay San Pedro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ Barangay San Pedro</div>
+    <nav>
+      <a href="home.html">Home</a>
+      <a href="services.html" class="active">Services</a>
+      <a href="complaints.html">Complaints</a>
+      <a href="messages.html">Messages</a>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <div class="card">
+      <h2>Request a Certificate / Service</h2>
+      <label>Select service</label>
+      <select id="certType"></select>
+      <form id="certForm" style="margin-top:14px;"></form>
+      <button class="btn" id="submitBtn" style="margin-top:14px;">Submit Request</button>
+    </div>
+
+    <div class="card">
+      <div class="flex-between">
+        <h3>My Requests</h3>
+        <button class="btn secondary small" onclick="loadMyRequests()">Refresh</button>
+      </div>
+      <div id="requestsBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["resident"]);
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+
+  // One config entry per certificate type — mirrors the original
+  // services_*.php forms and their field sets.
+  const CERT_TYPES = {
+    "residency":       { label: "Certificate of Residency", fields: ["lname","fname","mi","age","nationality","houseno","street","brgy","municipal","purpose"] },
+    "clearance":       { label: "Barangay Clearance", fields: ["lname","fname","mi","age","houseno","street","brgy","municipal","purpose"] },
+    "indigency":       { label: "Certificate of Indigency", fields: ["lname","fname","mi","nationality","houseno","street","brgy","municipal","purpose"] },
+    "good-moral":      { label: "Certificate of Good Moral Character", fields: ["lname","fname","mi","civil_status","houseno","street","brgy","municipal","purpose"] },
+    "solo-parent":     { label: "Solo Parent Certificate", fields: ["lname","fname","mi","civil_status","houseno","street","brgy","municipal","children","purpose"] },
+    "guardianship":    { label: "Certificate of Guardianship", fields: ["lname","fname","mi","civil_status","houseno","street","brgy","municipal","minor_name","minor_bdate","relationship","reason","purpose"] },
+    "livestock":       { label: "Certificate of Livestock Ownership", fields: ["lname","fname","mi","civil_status","houseno","street","brgy","municipal","animal_type","animal_sex","age_color","brand_marks","quantity","purpose"] },
+    "business-permit": { label: "Business Permit", fields: ["lname","fname","mi","bsname","houseno","street","brgy","municipal","bsindustry","aoe"] },
+    "barangay-id":     { label: "Barangay ID", fields: ["lname","fname","mi","houseno","street","brgy","municipal","bplace","bdate","contact","relation"] },
+  };
+
+  const FIELD_LABELS = {
+    lname: "Last Name", fname: "First Name", mi: "M.I.", age: "Age", nationality: "Nationality",
+    houseno: "House No.", street: "Street", brgy: "Barangay", municipal: "Municipality",
+    purpose: "Purpose", civil_status: "Civil Status", children: "Children (names, comma-separated)",
+    minor_name: "Minor's Name", minor_bdate: "Minor's Birth Date", relationship: "Relationship",
+    reason: "Reason for Guardianship", animal_type: "Animal Type", animal_sex: "Animal Sex",
+    age_color: "Age/Color", brand_marks: "Brand Marks", quantity: "Quantity",
+    bsname: "Business Name", bsindustry: "Business Industry/Type", aoe: "Area of Exercise",
+    bplace: "Birth Place", bdate: "Birth Date", contact: "Contact Number", relation: "Relation to Household Head",
+  };
+  const DATE_FIELDS = new Set(["minor_bdate", "bdate"]);
+  const NUMBER_FIELDS = new Set(["age", "quantity"]);
+
+  const select = document.getElementById("certType");
+  Object.entries(CERT_TYPES).forEach(([key, cfg]) => {
+    const opt = document.createElement("option");
+    opt.value = key; opt.textContent = cfg.label;
+    select.appendChild(opt);
+  });
+
+  function renderForm() {
+    const cfg = CERT_TYPES[select.value];
+    const form = document.getElementById("certForm");
+    form.innerHTML = cfg.fields.map(f => `
+      <label>${FIELD_LABELS[f] || f}</label>
+      <input name="${f}" type="${DATE_FIELDS.has(f) ? "date" : NUMBER_FIELDS.has(f) ? "number" : "text"}">
+    `).join("");
+  }
+  select.addEventListener("change", renderForm);
+  renderForm();
+
+  document.getElementById("submitBtn").addEventListener("click", async () => {
+    const type = select.value;
+    const form = document.getElementById("certForm");
+    const payload = Object.fromEntries(new FormData(form).entries());
+    Object.keys(payload).forEach(k => { if (payload[k] === "") delete payload[k]; });
+    try {
+      await api(`/api/certificates/${type}`, { method: "POST", body: payload });
+      toast("Request submitted.");
+      form.reset();
+      loadMyRequests();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadMyRequests() {
+    const box = document.getElementById("requestsBox");
+    box.innerHTML = "Loading…";
+    let allRows = [];
+    for (const [key, cfg] of Object.entries(CERT_TYPES)) {
+      try {
+        const rows = await api(`/api/certificates/${key}`);
+        rows.forEach(r => allRows.push({ ...r, _type: cfg.label, _key: key }));
+      } catch (_) { /* skip on error, keep going */ }
+    }
+    allRows.sort((a, b) => new Date(b.date_submitted) - new Date(a.date_submitted));
+    if (!allRows.length) { box.innerHTML = `<p class="empty">You haven't submitted any requests yet.</p>`; return; }
+    box.innerHTML = `<table><thead><tr><th>Service</th><th>Purpose</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
+      ${allRows.map(r => `<tr>
+        <td>${r._type}</td><td>${r.purpose || "—"}</td><td>${badge(r.status)}</td><td>${fmtDate(r.date_submitted)}</td>
+      </tr>`).join("")}
+    </tbody></table>`;
+  }
+
+  loadMyRequests();
+</script>
+</body>
+</html>

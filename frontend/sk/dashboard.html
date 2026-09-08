@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SK Dashboard - Barangay San Pedro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="navbar">
+    <div class="brand">🏛️ SK — Barangay San Pedro</div>
+    <nav>
+      <button id="logoutBtn">Log Out</button>
+    </nav>
+  </div>
+  <div class="container">
+    <h2 id="welcome">SK Dashboard</h2>
+
+    <div class="grid cols-2">
+      <div class="card">
+        <h3>Create Youth Program</h3>
+        <form id="programForm">
+          <label>Program Title</label>
+          <input name="program_title" required>
+          <label>Type</label>
+          <input name="program_type" placeholder="e.g. Sports, Livelihood, Seminar">
+          <label>Description</label>
+          <textarea name="description" rows="3"></textarea>
+          <div class="grid cols-2">
+            <div><label>Venue</label><input name="venue"></div>
+            <div><label>Date</label><input name="event_date" type="date"></div>
+          </div>
+          <div class="grid cols-2">
+            <div><label>Slots</label><input name="slots" type="number"></div>
+            <div><label>Requirements</label><input name="requirements"></div>
+          </div>
+          <button class="btn" type="submit" style="margin-top:14px;">Publish Program</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Post Bulletin</h3>
+        <form id="bulletinForm">
+          <label>Title</label>
+          <input name="post_title" required>
+          <label>Content</label>
+          <textarea name="post_content" rows="3"></textarea>
+          <label>Type</label>
+          <input name="post_type" placeholder="e.g. News, Advisory">
+          <label><input type="checkbox" name="is_pinned" style="width:auto; display:inline-block;"> Pin this post</label>
+          <button class="btn" type="submit" style="margin-top:14px;">Post</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Programs</h3>
+      <div id="programsBox">Loading…</div>
+    </div>
+    <div class="card">
+      <h3>Bulletin Board</h3>
+      <div id="bulletinBox">Loading…</div>
+    </div>
+  </div>
+
+<script src="../js/api.js"></script>
+<script>
+  const session = requireLogin(["sk", "staff", "administrator"]);
+  document.getElementById("welcome").textContent = `Welcome, ${session.name}`;
+  document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
+
+  document.getElementById("programForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(e.target).entries());
+    if (payload.slots) payload.slots = parseInt(payload.slots);
+    if (!payload.event_date) delete payload.event_date;
+    try {
+      await api("/api/youth/programs", { method: "POST", body: payload });
+      toast("Program published.");
+      e.target.reset();
+      loadPrograms();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  document.getElementById("bulletinForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const payload = Object.fromEntries(form.entries());
+    payload.is_pinned = form.get("is_pinned") === "on";
+    try {
+      await api("/api/youth/bulletin", { method: "POST", body: payload });
+      toast("Posted.");
+      e.target.reset();
+      loadBulletin();
+    } catch (err) { toast(err.message, "error"); }
+  });
+
+  async function loadPrograms() {
+    try {
+      const rows = await api("/api/youth/programs", { auth: false });
+      const box = document.getElementById("programsBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No programs yet.</p>`; return; }
+      box.innerHTML = `<table><thead><tr><th>Title</th><th>Venue</th><th>Date</th><th>Slots</th><th>Status</th></tr></thead><tbody>
+        ${rows.map(p => `<tr>
+          <td>${p.program_title}</td><td>${p.venue || "—"}</td><td>${fmtDate(p.event_date)}</td>
+          <td>${p.slots ?? "—"}</td><td>${badge(p.status)}</td>
+        </tr>`).join("")}
+      </tbody></table>`;
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  async function loadBulletin() {
+    try {
+      const rows = await api("/api/youth/bulletin", { auth: false });
+      const box = document.getElementById("bulletinBox");
+      if (!rows.length) { box.innerHTML = `<p class="empty">No posts yet.</p>`; return; }
+      box.innerHTML = rows.map(p => `
+        <div style="padding:10px 0; border-bottom:1px solid var(--line);">
+          <strong>${p.is_pinned ? "📌 " : ""}${p.post_title}</strong>
+          <div style="font-size:13px; color:var(--ink-soft);">${p.post_content || ""}</div>
+          <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">${p.post_type || ""} · ${fmtDate(p.date_posted)}</div>
+        </div>`).join("");
+    } catch (err) { toast(err.message, "error"); }
+  }
+
+  loadPrograms(); loadBulletin();
+</script>
+</body>
+</html>

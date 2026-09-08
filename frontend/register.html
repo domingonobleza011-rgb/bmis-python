@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register - Barangay San Pedro</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container narrow">
+    <div class="card">
+      <h1 style="color:var(--blue-deep); font-size:20px;">Resident Registration</h1>
+      <p style="color:var(--ink-soft); font-size:13px;">Your application is reviewed by an admin before you can log in.</p>
+      <form id="regForm">
+        <label>Email or Phone (used to log in)</label>
+        <input type="text" name="login_identity" required>
+        <label>Password</label>
+        <input type="password" name="password" required minlength="6">
+        <div class="grid cols-2">
+          <div><label>Last Name</label><input type="text" name="lname" required></div>
+          <div><label>First Name</label><input type="text" name="fname" required></div>
+        </div>
+        <div class="grid cols-2">
+          <div><label>Middle Initial</label><input type="text" name="mi"></div>
+          <div><label>Sex</label>
+            <select name="sex"><option value="Male">Male</option><option value="Female">Female</option></select>
+          </div>
+        </div>
+        <div class="grid cols-2">
+          <div><label>Birth Date</label><input type="date" name="bdate"></div>
+          <div><label>Birth Place</label><input type="text" name="bplace"></div>
+        </div>
+        <label>Civil Status</label>
+        <select name="status">
+          <option>Single</option><option>Married</option><option>Widowed</option><option>Separated</option>
+        </select>
+        <div class="grid cols-2">
+          <div><label>House No.</label><input type="text" name="houseno"></div>
+          <div><label>Street</label><input type="text" name="street"></div>
+        </div>
+        <div class="grid cols-2">
+          <div><label>Barangay</label><input type="text" name="brgy" value="San Pedro"></div>
+          <div><label>Municipality</label><input type="text" name="municipal"></div>
+        </div>
+        <div class="grid cols-2">
+          <div><label>Province</label><input type="text" name="province"></div>
+          <div><label>Region</label><input type="text" name="region"></div>
+        </div>
+        <label>Nationality</label>
+        <input type="text" name="nationality" value="Filipino">
+        <div class="grid cols-2">
+          <div><label>Registered Voter?</label>
+            <select name="voter"><option value="No">No</option><option value="Yes">Yes</option></select>
+          </div>
+          <div><label>Household Head?</label>
+            <select name="family_role"><option value="No">No</option><option value="Yes">Yes</option></select>
+          </div>
+        </div>
+        <label>Person With Disability?</label>
+        <select name="pwd"><option value="No">No</option><option value="Yes">Yes</option></select>
+        <label>Upload Valid Government ID (JPEG, PNG, or PDF)</label>
+        <input type="file" name="valid_id_file" accept="image/jpeg,image/png,application/pdf" required>
+        <button class="btn" type="submit" style="width:100%; margin-top:20px;">Submit Application</button>
+      </form>
+      <p style="text-align:center; margin-top:14px; font-size:13px;"><a href="index.html" style="color:var(--blue); font-weight:700;">Back to login</a></p>
+    </div>
+  </div>
+
+<script src="js/api.js"></script>
+<script>
+  document.getElementById("regForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/register`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Registration failed.");
+      toast(data.message);
+      setTimeout(() => window.location.href = "index.html", 1800);
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  });
+</script>
+</body>
+</html>
