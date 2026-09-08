@@ -35,7 +35,7 @@
     </div>
   </div>
 
-<script src="../js/api.js"></script>
+  <script>window.API_BASE="https://bmis-backend-dy58.onrender.com";</script>
 <script>
   const session = requireLogin(["administrator", "staff"]);
   document.getElementById("logoutBtn").onclick = () => { clearSession(); window.location.href = "../index.html"; };
